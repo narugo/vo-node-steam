@@ -12,9 +12,7 @@ app.listen(port, function() {
 
 
 
-/////////////////////////////////////////////////////////////steam///////////////////////////
-
-
+////////////////////////////////////////////steam////////////////////////////////////////////
 var Steam = require('steam');
 var SteamTrade = require('steam-trade');
 var bot = new Steam.SteamClient();
@@ -27,10 +25,7 @@ try {
         shaSentryfile: config.shaSentryFile
     });
 }
-catch (e) {
-    // statements to handle any exceptions
-    console.log(e);
-}
+catch (e) { console.log(e); }
 
 var logOn = function () {
     if (bot.loggedOn == false) {
@@ -41,12 +36,10 @@ var logOn = function () {
         });
     } else bot.setPersonaState(Steam.EPersonaState.LookingToTrade);
 };
-
 var logOff = function () {
     bot.logOff();
     console.log("Bot logged off");
 }
-
 var logOffline = function () {
     bot.setPersonaState(Steam.EPersonaState.Offline);
 }
@@ -80,10 +73,10 @@ bot.on('webSessionID', function (sessionID) {
 
 bot.on('message', function (source, message, type, chatter) {
     if (message.length > 0) {
-        console.log('CM: ' + bot.users[source].playerName + ' << ' + message);
+        console.log('(Chat) ' + bot.users[source].playerName + ': ' + message);
 
         if (message.toLowerCase().indexOf('trade') !== -1) {
-            console.log('TR: ' + bot.users[source].playerName + ' wants to trade with bot #' + bot.steamID);
+            console.log('(rade) ' + bot.users[source].playerName + ' wants to trade with bot #' + bot.steamID);
             bot.sendMessage(source, 'Sending you a trade invite.', Steam.EChatEntryType.ChatMsg);
             bot.trade(source);
         }
@@ -130,7 +123,6 @@ bot.on('friend', function (steamid, friendtype) {
 
 
 ///////////////////////////////trading////////////////////////////
-
 var inventory;
 var scrap;
 var weapons;
@@ -140,14 +132,6 @@ var nonTradeable;
 
 var tempuser = "";
 var tradingFor;
-
-/*var trades = [
-    //format = [ cost of item in array, "casual cost", "casual name", "def_index" ]
-    [["5000"], "1 Scrap", "Sydney Sleeper", "230"],
-    [["5000", "5000"], "2 buds", "Test Item 2", "0"]
-];
-
-*/
 
 var trades = [
     sydney = {
@@ -178,7 +162,7 @@ bot.on('sessionStart', function (otherclient) {
     addedScrap = [];
     client = otherclient;
 
-    console.log("TR: "+bot.users[client].playerName+" is now trading with bot");
+    console.log("(Trade) "+bot.users[client].playerName+" is now trading with bot");
     steamTrade.open(otherclient);
 
     steamTrade.chatMsg('Please wait while I load my inventory...');
@@ -188,16 +172,6 @@ bot.on('sessionStart', function (otherclient) {
         inventory = inv;
 
         steamTrade.chatMsg('Inventory loaded.');
-
-        /*for (var i = 0; i < trades.length; i++) {
-            var itemname = trades[i][trades[i].length - 2];
-            var itemid = trades[i][trades[i].length - 1];
-            var itemcost = trades[i][0];
-            var itemcoststring = trades[i][1];
-
-            //trades[i][trades[0]];
-            steamTrade.chatMsg(itemname + " (" + itemid + "): "+itemcoststring);
-        */
 
         for (var i = 0; i < trades.length; i++) {
             steamTrade.chatMsg(trades[i].name + " (" + trades[i].index + "): "+trades[i].casualCost);
@@ -230,7 +204,6 @@ steamTrade.on('unready', function () {
 
 steamTrade.on('ready', function () {
 
-    //validate
     //validate();
 
     steamTrade.ready(function () {
