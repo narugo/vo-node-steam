@@ -134,11 +134,29 @@ var client;
 var nonTradeable;
 
 var tempuser = "";
+var tradingFor;
 
-var trades = [
+/*var trades = [
     //format = [ cost of item in array, "casual cost", "casual name", "def_index" ]
     [["5000"], "1 Scrap", "Sydney Sleeper", "230"],
     [["5000", "5000"], "2 buds", "Test Item 2", "0"]
+];
+
+*/
+
+var trades = [
+    sydney = {
+        casualCost: "1 scrap",
+        cost: [5000],
+        name: "Sydney Sleeper",
+        index: '230'
+    },
+    scrap = {
+        casualCost: "1 scrap",
+        cost: [5000],
+        name: "Scrap",
+        index: '5000'
+    }
 ];
 
 bot.on('tradeProposed', function (tradeID, otherClient) {
@@ -158,13 +176,16 @@ bot.on('sessionStart', function (otherclient) {
     console.log("TR: "+bot.users[client].playerName+" is now trading with bot");
     steamTrade.open(otherclient);
 
-    steamTrade.chatMsg('Please wait while I load my inventory...');    
+    steamTrade.chatMsg('Please wait while I load my inventory...');
 
     steamTrade.loadInventory(440, 2, function (inv) {
         
+        inventory = inv;
+        console.log(inv);
+
         steamTrade.chatMsg('Inventory loaded.');
 
-        for (var i = 0; i < trades.length; i++) {
+        /*for (var i = 0; i < trades.length; i++) {
             var itemname = trades[i][trades[i].length - 2];
             var itemid = trades[i][trades[i].length - 1];
             var itemcost = trades[i][0];
@@ -172,6 +193,10 @@ bot.on('sessionStart', function (otherclient) {
 
             //trades[i][trades[0]];
             steamTrade.chatMsg(itemname + " (" + itemid + "): "+itemcoststring);
+        */
+
+        for (var i = 0; i < trades.length; i++) {
+            steamTrade.chatMsg(trades[i].name + " (" + trades[i].index + "): "+trades[i].casualCost);
         }
 
         steamTrade.chatMsg('Please type the number of the item you\'d wish to buy. E.g. 230');
@@ -206,22 +231,38 @@ steamTrade.on('ready', function () {
 });
 
 steamTrade.on('chatMsg', function (msg) {
-    if (msg.match(/^-?\d+$/)) {
-        //user has entered a number
-        steamTrade.chatMsg("You have agreed to buy the "+ trades[trades.indexOf(msg)][2]);
-    } else {
-        steamTrade.chatMsg("Please enter the item number between the brackets.");
 
-        if (config.isAdmin(client)) {
-            if (msg == 'give') {
-                steamTrade.addItems(inventory);
-            }
-            if (msg.toLowerCase().indexOf('giveme') !== -1) {
-                msg = msg.replace('giveme ', '');
-                var item = steamTrade.addItems(inventory.filter(function (item) { return item.name == msg; }));
-            }
+    for (var i = 0; i < trades.length; i++) {
+        if (trades[i].index == msg) {
+            console.log(i + " yes");
+            tradingFor = trades[i];
+
+            steamTrade.chatMsg("You are now trading for: " + tradingFor.name);
+            steamTrade.chatMsg("Please put up: " + tradingFor.casualCost);
+
+            var invItem = inventory.filter(function (item) { return item; });
+            console.log("============");
+            console.log(invItem);
+            
+
+            for (var prop in invItem)
+                return prop;
+
+            //steamTrade.addItems();
+
+            break;
         }
-    }    
+    }
+
+    if (config.isAdmin(client)) {
+        if (msg == 'give') {
+            steamTrade.addItems(inventory);
+        }
+        if (msg.toLowerCase().indexOf('giveme') !== -1) {
+            msg = msg.replace('giveme ', '');
+            var item = steamTrade.addItems(inventory.filter(function (item) { return item.name == msg; }));
+        }
+    } 
 });
 
 steamTrade.on('end', function (result) {
@@ -235,11 +276,12 @@ steamTrade.on('end', function (result) {
 
 
 ///////////////////////////////////end trading//////////////////////////////////
-app.all('/', function (req, res) {
+app.all('/', function (request, response) {
     response.header("Access-Control-Allow-Origin", '*');
     response.header("Access-Control-Allow-Headers", "Content-Type");
     response.header("Access-Control-Allow-Methods", "POST, GET");
     response.header("Access-Control-Max-Age", "86400");
+    response.end('ok');
 });
 
 app.get('/', function (request, response) {
