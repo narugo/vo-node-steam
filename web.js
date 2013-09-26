@@ -10,7 +10,7 @@ app.listen(port, function() {
     console.log("Listening on " + port);
 });
 
-var log = '';
+
 
 /////////////////////////////////////////////////////////////steam///////////////////////////
 
@@ -29,7 +29,7 @@ try {
 }
 catch (e) {
     // statements to handle any exceptions
-    log = e + new Date().getTime();
+    console.log(e);
 }
 
 var logOn = function () {
@@ -39,13 +39,17 @@ var logOn = function () {
             password: config.password,
             shaSentryfile: config.shaSentryFile
         });
-    } else console.log("already logged in. doing nothing maybe extend");
+    } else bot.setPersonaState(Steam.EPersonaState.LookingToTrade);
 };
 
 var logOff = function () {
     bot.logOff();
     console.log("Bot logged off");
-};
+}
+
+var logOffline = function () {
+    bot.setPersonaState(Steam.EPersonaState.Offline);
+}
 
 bot.on('sentry', function (sentryHash) {
     require('fs').writeFile('sentryfile', sentryHash, function (err) {
@@ -60,6 +64,7 @@ bot.on('sentry', function (sentryHash) {
 bot.on('loggedOn', function () {
     console.log('Bot: Logged into Steam');
     bot.setPersonaName('_ben (nodejs)');
+    bot.setPersonaState(Steam.EPersonaState.LookingToTrade);
 });
 
 bot.on('webSessionID', function (sessionID) {
@@ -111,9 +116,9 @@ bot.on('friend', function (steamid, friendtype) {
             console.log(steamid + ' added me as friend. I have accepted');
             break;
         case 3:
-            bot.sendMessage(steamid, "Thank you for accepting me.");
-            bot.sendMessage(steamid, "http://dev.voiid.net/");
-            bot.sendMessage(steamid, "http://steam.voiid.net/");
+            bot.sendMessage(steamid, "Thank you for adding me.");
+            bot.sendMessage(steamid, "http://voiid.net/");
+            bot.sendMessage(steamid, "http://steamcommunity.com/id/_ben");
             console.log('Bot is now friends with: ' + bot.users[steamid].playerName);
             //start auto trade invite etc, say data about bot request
             break;
@@ -181,7 +186,6 @@ bot.on('sessionStart', function (otherclient) {
     steamTrade.loadInventory(440, 2, function (inv) {
         
         inventory = inv;
-        console.log(inv);
 
         steamTrade.chatMsg('Inventory loaded.');
 
@@ -225,6 +229,10 @@ steamTrade.on('unready', function () {
 });
 
 steamTrade.on('ready', function () {
+
+    //validate
+    //validate();
+
     steamTrade.ready(function () {
         steamTrade.confirm();
     });
@@ -240,16 +248,8 @@ steamTrade.on('chatMsg', function (msg) {
             steamTrade.chatMsg("You are now trading for: " + tradingFor.name);
             steamTrade.chatMsg("Please put up: " + tradingFor.casualCost);
 
-            var invItem = inventory.filter(function (item) { return item; });
-            console.log("============");
-            console.log(invItem);
-            
 
-            for (var prop in invItem)
-                return prop;
-
-            //steamTrade.addItems();
-
+            steamTrade.addItems(inventory.filter(function (item) { return item.app_data.def_index == msg; })[0]);
             break;
         }
     }
@@ -318,4 +318,8 @@ app.get('/recover', function (request, response) {
 app.get('/test', function (request, response) {
     logOn();
     response.send("ok");
+});
+
+app.get('/offline', function (request, response) {
+    logOffline();
 });
