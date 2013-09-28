@@ -197,14 +197,18 @@ bot.on('sessionStart', function (otherclient) {
                 steamTrade.chatMsg(trades[i].name + " (" + trades[i].index + "): " + trades[i].casualCost);
             }
         }, 100);
-
-        
-        
     });
     
 });
 
 steamTrade.on('offerChanged', function (added, item) {
+
+    bot.webLogOn(function (cookies) {
+        for (var i = 0; i < cookies.length; i++) {
+            steamTrade.setCookie(cookies[i]);
+        }
+    });
+
     validated = 0;
     steamTrade.unready();
 
