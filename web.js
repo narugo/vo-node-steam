@@ -109,9 +109,7 @@ bot.on('friend', function (steamid, friendtype) {
             console.log(steamid + ' added me as friend. I have accepted');
             break;
         case 3:
-            bot.sendMessage(steamid, "Thank you for adding me.");
-            bot.sendMessage(steamid, "http://voiid.net/");
-            bot.sendMessage(steamid, "http://steamcommunity.com/id/_ben");
+            bot.trade(steamid);
             console.log('Bot is now friends with: ' + bot.users[steamid].playerName);
             //start auto trade invite etc, say data about bot request
             break;
@@ -132,6 +130,9 @@ var nonTradeable;
 
 var tempuser = "";
 var tradingFor;
+var validated = 0;
+var tradeDefArray = [];
+var mySaleItem;
 
 var trades = [
     sydney = {
@@ -140,11 +141,11 @@ var trades = [
         name: "Sydney Sleeper",
         index: '230'
     },
-    scrap = {
-        casualCost: "1 scrap",
-        cost: [5000],
-        name: "Scrap",
-        index: '5000'
+    lastbreath = {
+        casualCost: "1key 1ref",
+        cost: [5021, 5002],
+        name: "The Last Breath",
+        index: '570'
     }
 ];
 
@@ -171,7 +172,7 @@ bot.on('sessionStart', function (otherclient) {
         
         inventory = inv;
 
-        steamTrade.chatMsg('Inventory loaded.');
+        //steamTrade.chatMsg('Inventory loaded.');
 
         for (var i = 0; i < trades.length; i++) {
             steamTrade.chatMsg(trades[i].name + " (" + trades[i].index + "): "+trades[i].casualCost);
@@ -184,9 +185,28 @@ bot.on('sessionStart', function (otherclient) {
 });
 
 steamTrade.on('offerChanged', function (added, item) {
+    validated = 0;
     steamTrade.unready();
+
+    setTimeout(function () {
+        tradeDefArray = [];
+        for (var j = 0; j < steamTrade.themAssets.length; j++) {
+            tradeDefArray.push(steamTrade.themAssets[j].app_data.def_index);
+        }
+        console.log(tradeDefArray);
+            
+        //make sure user has chosen what they want
+        if (typeof (tradingFor) != "undefined") {
+
+            //if the clients offered item's def index array does not match our trade cost array
+            if (tradeDefArray.sort().join(',') === tradingFor.cost.sort().join(',')) {
+                validated = 1;
+                steamTrade.chatMsg("Please ready up");
+            }
+        }
+    }, 100);
     
-    if (item.tags && item.tags.some(function (tag) {
+    /*if (item.tags && item.tags.some(function (tag) {
         return ~['primary', 'secondary', 'melee', 'pda2'].indexOf(tag.internal_name);
     }) && (item.descriptions === '' || !item.descriptions.some(function (desc) {
         return desc.value == '( Not Usable in Crafting )';
@@ -194,8 +214,7 @@ steamTrade.on('offerChanged', function (added, item) {
         // this is a craftable weapon
         //steamTrade.chatMsg("You "+ (added ? 'added' : 'false') + " a craftable weapon");
         
-    }
-    console.log(steamTrade.themAssets);
+    }*/
 });
 
 steamTrade.on('unready', function () {
@@ -204,36 +223,56 @@ steamTrade.on('unready', function () {
 
 steamTrade.on('ready', function () {
 
-    //validate();
-
-    steamTrade.ready(function () {
-        steamTrade.confirm();
-    });
+    //validate
+    if (validated === 1) {
+        steamTrade.ready(function () {
+            steamTrade.confirm();
+        });
+    } else {
+        steamTrade.chatMsg("Please put up the requirements: " + tradingFor.casualCost);
+    }
 });
 
 steamTrade.on('chatMsg', function (msg) {
 
     for (var i = 0; i < trades.length; i++) {
         if (trades[i].index == msg) {
-            console.log(i + " yes");
-            tradingFor = trades[i];
+            //if already chosen an item
+            if (typeof (tradingFor) != "undefined") {
+                steamTrade.cancel(function () {
+                    bot.sendMessage(client, "Currently, I need to start a new trade for each item. Please invite me to trade again, or say 'trade'");
+                    bot.setPersonaState(Steam.EPersonaState.LookingToTrade);
+                });
+            }
 
-            steamTrade.chatMsg("You are now trading for: " + tradingFor.name);
-            steamTrade.chatMsg("Please put up: " + tradingFor.casualCost);
+            //check if it is inventory
+            if (inventory.filter(function (item) { return item.app_data.def_index == msg; }).length >= 1) {
+                //continue trade
+                tradingFor = trades[i];
+                mySaleItem = inventory.filter(function (item) { return item.app_data.def_index == msg; });
 
+                steamTrade.chatMsg("You are now trading for: " + tradingFor.name);
+                steamTrade.addItems(mySaleItem);
+                steamTrade.chatMsg("Please put up: " + tradingFor.casualCost);
 
-            steamTrade.addItems(inventory.filter(function (item) { return item.app_data.def_index == msg; })[0]);
+            } else {
+                console.log("(Trade) Error! Bot doesn't have the item: " + msg);
+                bot.sendMessage(config.admin[0], "Trade Error! " + bot.users[client].playerName + ": bot did not have item: " + msg);
+                steamTrade.chatMsg("I'm sorry! I don't have this item in my inventory. A message has been sent to my master.");
+            }
             break;
         }
+    }
+
+    if (msg == 'cancel') {
+        steamTrade.cancel(function () {
+            bot.sendMessage(client, "Currently, I need to start a new trade for each item. Please invite me to trade again, or say 'trade'");
+        });
     }
 
     if (config.isAdmin(client)) {
         if (msg == 'give') {
             steamTrade.addItems(inventory);
-        }
-        if (msg.toLowerCase().indexOf('giveme') !== -1) {
-            msg = msg.replace('giveme ', '');
-            var item = steamTrade.addItems(inventory.filter(function (item) { return item.name == msg; }));
         }
     } 
 });
