@@ -1,4 +1,5 @@
 var express = require('express');
+var http = require('http');
 var config = require('config');
 
 var app = express();
@@ -93,6 +94,10 @@ bot.on('message', function (source, message, type, chatter) {
             console.log('!!! server shutdown by ' + source + ' !!!');
             process.exit(0);
         }
+        if (message.toLowerCase().indexOf('message ') !== -1) {
+            message = message.replace("message ", "");
+            bot.sendMessage(config.admin[0], "(Feedback) " + bot.users[source].playerName + ": " + message);
+        }
     }
 });
 
@@ -128,24 +133,30 @@ var addedScrap;
 var client;
 var nonTradeable;
 
-var tempuser = "";
 var tradingFor;
 var validated = 0;
 var tradeDefArray = [];
 var mySaleItem;
 
 var trades = [
+    //http://wiki.alliedmods.net/Team_Fortress_2_Item_Definition_Indexes
     sydney = {
-        casualCost: "1 scrap",
+        casualCost: "1 Scrap",
         cost: [5000],
         name: "Sydney Sleeper",
-        index: '230'
+        index: "230"
     },
     lastbreath = {
-        casualCost: "1key 1ref",
+        casualCost: "1key + 1ref",
         cost: [5021, 5002],
         name: "The Last Breath",
-        index: '570'
+        index: "570"
+    },
+    bafbills = {
+        casualCost: "7keys + 3ref",
+        cost: [5021, 5021, 5021, 5021, 5021, 5021, 5021, 5002, 5002, 5002],
+        name: "Bill's Hat (Barraclavas are Forever)",
+        index: "126"
     }
 ];
 
@@ -154,8 +165,14 @@ bot.on('tradeProposed', function (tradeID, otherClient) {
 });
 
 bot.on('sessionStart', function (otherclient) {
+
+    bot.webLogOn(function (cookies) {
+        for (var i = 0; i < cookies.length; i++) {
+            steamTrade.setCookie(cookies[i]);
+        }
+    });
+
     bot.setPersonaState(Steam.EPersonaState.Busy);
-    tempuser = otherclient;
 
     inventory = [];
     scrap = [];
@@ -173,12 +190,15 @@ bot.on('sessionStart', function (otherclient) {
         inventory = inv;
 
         //steamTrade.chatMsg('Inventory loaded.');
-
-        for (var i = 0; i < trades.length; i++) {
-            steamTrade.chatMsg(trades[i].name + " (" + trades[i].index + "): "+trades[i].casualCost);
-        }
-
         steamTrade.chatMsg('Please type the number of the item you\'d wish to buy. E.g. 230');
+
+        setTimeout(function () {
+            for (var i = 0; i < trades.length; i++) {
+                steamTrade.chatMsg(trades[i].name + " (" + trades[i].index + "): " + trades[i].casualCost);
+            }
+        }, 100);
+
+        
         
     });
     
@@ -217,22 +237,6 @@ steamTrade.on('offerChanged', function (added, item) {
     }*/
 });
 
-steamTrade.on('unready', function () {
-    steamTrade.unready();
-});
-
-steamTrade.on('ready', function () {
-
-    //validate
-    if (validated === 1) {
-        steamTrade.ready(function () {
-            steamTrade.confirm();
-        });
-    } else {
-        steamTrade.chatMsg("Please put up the requirements: " + tradingFor.casualCost);
-    }
-});
-
 steamTrade.on('chatMsg', function (msg) {
 
     for (var i = 0; i < trades.length; i++) {
@@ -258,7 +262,7 @@ steamTrade.on('chatMsg', function (msg) {
             } else {
                 console.log("(Trade) Error! Bot doesn't have the item: " + msg);
                 bot.sendMessage(config.admin[0], "Trade Error! " + bot.users[client].playerName + ": bot did not have item: " + msg);
-                steamTrade.chatMsg("I'm sorry! I don't have this item in my inventory. A message has been sent to my master.");
+                steamTrade.chatMsg("I'm sorry! I don't have this item in my inventory. It might have already been sold. A message has been sent to my master.");
             }
             break;
         }
@@ -274,64 +278,71 @@ steamTrade.on('chatMsg', function (msg) {
         if (msg == 'give') {
             steamTrade.addItems(inventory);
         }
-    } 
+        if (msg == "deposit") {
+            validated = 1;
+        }
+    }
+});
+
+steamTrade.on('unready', function () {
+    steamTrade.unready();
+});
+
+steamTrade.on('ready', function () {
+
+    //validate
+    if (validated === 1) {
+        steamTrade.ready(function () {
+            steamTrade.confirm();
+        });
+    } else {
+        if (typeof (tradingFor) == "undefined") {
+            steamTrade.chatMsg("Please type the number of the item you'd wish to buy. E.g. 230");
+        } else {
+            steamTrade.chatMsg("You are missing some requirements: " + tradingFor.casualCost);
+        }
+    }
 });
 
 steamTrade.on('end', function (result) {
-    console.log('trade', result);
+    console.log('Trade', result);
     bot.setPersonaState(Steam.EPersonaState.LookingToTrade);
+    bot.sendMessage(client, 'Thanks for using this bot!');
+    bot.sendMessage(client, "Please send feedback and suggestions to http://steamcommunity.com/id/_ben or type message followed my your message. E.g. message Nice Bot!");
 
-    bot.sendMessage(tempuser, 'Thanks for using this bot!');
-    bot.sendMessage(tempuser, 'Please send feedback and suggestions to http://steamcommunity.com/id/_ben');
-    tempuser = null;
+    //resets
+    tradingFor = undefined;
 });
 
 
 ///////////////////////////////////end trading//////////////////////////////////
-app.all('/', function (request, response) {
-    response.header("Access-Control-Allow-Origin", '*');
-    response.header("Access-Control-Allow-Headers", "Content-Type");
-    response.header("Access-Control-Allow-Methods", "POST, GET");
-    response.header("Access-Control-Max-Age", "86400");
-    response.end('ok');
-});
-
 app.get('/', function (request, response) {
-    response.send('hello');
+    var apiData;
+    http.get("http://api.uptimerobot.com/getMonitors?apiKey="+config.uptimeApiKey+"&logs=1&alertContacts=1&monitors=15830-32696&format=json", function (res) {
+        var body = '';
+
+        res.on('data', function (chunk) {
+            body += chunk;
+        });
+
+        res.on('end', function () {
+            body = body.replace("jsonUptimeRobotApi(", "");
+            body = body.substring(0, body.length - 1);
+            //console.log(body);
+            apiData = JSON.parse(body);
+            response.send("Overall Uptime: " + apiData.monitors.monitor[0].alltimeuptimeratio + "%");
+        });
+    }).on('error', function (e) {
+        response.send(e);
+    });
 });
 
-
-///sending data
-
-//initial turn on bot
-app.post('/init', function (request, response) {
-    console.log(request.body);
-    logOn();
-});
-
-
-//test friend request
-app.post('/addfriend', function (request, response) {
-    response.header("Access-Control-Allow-Origin", 'http://ben.voiid.net');
-
-    logOn();
-    console.log(request.body);
-    bot.addFriend(request.body.steamid);
-
-    response.end("bot has sent "+req.body.steamid+" a friend request");
-});
-
-app.get('/recover', function (request, response) {
-    bot.removeFriend(config.admin);
-    bot.addFriend(config.admin);
-    response.send("recovered");
-});
-
-app.get('/test', function (request, response) {
+app.get('/online', function (request, response) {
     logOn();
     response.send("ok");
 });
 
 app.get('/offline', function (request, response) {
     logOffline();
+    response.send("ok");
 });
