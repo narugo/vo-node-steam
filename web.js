@@ -6,9 +6,12 @@ var app = express();
 app.use(express.logger());
 app.use(express.bodyParser());
 
-var port = process.env.PORT || 5000;
+app.configure(function () {
+    app.set('title', 'vo-node-steam');
+});
+
 app.listen(port, function() {
-    console.log("Listening on " + port);
+    console.log("Listening on " + (process.env.PORT || 5000));
 });
 
 
@@ -147,8 +150,8 @@ var trades = [
         index: "230"
     },
     lastbreath = {
-        casualCost: "1key + 1ref",
-        cost: [5021, 5002],
+        casualCost: "1 key",
+        cost: [5021],
         name: "The Last Breath",
         index: "570"
     },
@@ -194,7 +197,7 @@ bot.on('sessionStart', function (otherclient) {
 
         setTimeout(function () {
             for (var i = 0; i < trades.length; i++) {
-                steamTrade.chatMsg(trades[i].name + " (" + trades[i].index + "): " + trades[i].casualCost);
+                steamTrade.chatMsg("(" + (i+1) + "): " + trades[i].name + ": " + trades[i].casualCost);
             }
         }, 100);
     });
@@ -244,28 +247,32 @@ steamTrade.on('offerChanged', function (added, item) {
 steamTrade.on('chatMsg', function (msg) {
 
     for (var i = 0; i < trades.length; i++) {
-        if (trades[i].index == msg) {
+        if (typeof trades[(msg-1)] == 'undefined') {//trades[i].index == msg
+            steamTrade.chatMsg("Try again");
+            break;
+        } else {        
             //if already chosen an item
             if (typeof (tradingFor) != "undefined") {
                 steamTrade.cancel(function () {
                     bot.sendMessage(client, "Currently, I need to start a new trade for each item. Please invite me to trade again, or say 'trade'");
                     bot.setPersonaState(Steam.EPersonaState.LookingToTrade);
+                    tradingFor = undefined;
                 });
             }
 
             //check if it is inventory
-            if (inventory.filter(function (item) { return item.app_data.def_index == msg; }).length >= 1) {
+            if (inventory.filter(function (item) { return item.app_data.def_index == trades[(msg-1)].index; }).length >= 1) {
                 //continue trade
-                tradingFor = trades[i];
-                mySaleItem = inventory.filter(function (item) { return item.app_data.def_index == msg; });
-
+                tradingFor = trades[(msg-1)];
+                
                 steamTrade.chatMsg("You are now trading for: " + tradingFor.name);
+                mySaleItem = inventory.filter(function (item) { return item.app_data.def_index == trades[(msg-1)].index; });
                 steamTrade.addItems(mySaleItem);
                 steamTrade.chatMsg("Please put up: " + tradingFor.casualCost);
 
             } else {
                 console.log("(Trade) Error! Bot doesn't have the item: " + msg);
-                bot.sendMessage(config.admin[0], "Trade Error! " + bot.users[client].playerName + ": bot did not have item: " + msg);
+                bot.sendMessage(config.admin[0], "Trade Error! " + bot.users[client].playerName + ": bot did not have item: " + trades[(msg-1)].name);
                 steamTrade.chatMsg("I'm sorry! I don't have this item in my inventory. It might have already been sold. A message has been sent to my master.");
             }
             break;
@@ -273,9 +280,8 @@ steamTrade.on('chatMsg', function (msg) {
     }
 
     if (msg == 'cancel') {
-        steamTrade.cancel(function () {
-            bot.sendMessage(client, "Currently, I need to start a new trade for each item. Please invite me to trade again, or say 'trade'");
-        });
+        steamTrade.chatMsg("resetting...");
+        steamTrade.removeItem(mySaleItem);
     }
 
     if (config.isAdmin(client)) {
@@ -321,8 +327,7 @@ steamTrade.on('end', function (result) {
 
 ///////////////////////////////////end trading//////////////////////////////////
 app.get('/', function (request, response) {
-    var apiData;
-    http.get("http://api.uptimerobot.com/getMonitors?apiKey="+config.uptimeApiKey+"&logs=1&alertContacts=1&monitors=15830-32696&format=json", function (res) {
+    http.get("http://api.uptimerobot.com/getMonitors?apiKey=" + config.uptimeApiKey + "&format=json&noJsonCallback=1", function (res) {
         var body = '';
 
         res.on('data', function (chunk) {
@@ -330,14 +335,16 @@ app.get('/', function (request, response) {
         });
 
         res.on('end', function () {
-            body = body.replace("jsonUptimeRobotApi(", "");
-            body = body.substring(0, body.length - 1);
-            //console.log(body);
-            apiData = JSON.parse(body);
-            response.send("Overall Uptime: " + apiData.monitors.monitor[0].alltimeuptimeratio + "%");
+            response.send("Overall Uptime: " + JSON.parse(body).monitors.monitor[0].alltimeuptimeratio + "%");
         });
     }).on('error', function (e) {
         response.send(e);
+    });
+
+    bot.webLogOn(function (cookies) {
+        for (var i = 0; i < cookies.length; i++) {
+            steamTrade.setCookie(cookies[i]);
+        }
     });
 });
 
