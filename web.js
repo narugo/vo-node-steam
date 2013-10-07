@@ -10,7 +10,7 @@ app.configure(function () {
     app.set('title', 'vo-node-steam');
 });
 
-app.listen(port, function() {
+app.listen((process.env.PORT || 5000), function () {
     console.log("Listening on " + (process.env.PORT || 5000));
 });
 
