@@ -1,1 +1,1 @@
-web: node web.js
+web: node web_2.js
