@@ -90,6 +90,7 @@ bot.on('webSessionID', function (sessionID) {
 var inventory;
 var clientInventory;
 var client;
+var canTrade = false;
 
 var tradingFor;
 var validated = 0;
@@ -98,29 +99,22 @@ var mySaleItem;
 
 var trades = [
     //http://wiki.alliedmods.net/Team_Fortress_2_Item_Definition_Indexes
-    sydney = {
-        casualCost: "1 Scrap",
-        cost: [5000],
+    {
         name: "Sydney Sleeper",
-        index: "230"
+        items: [230],
+        cost: [
+            { "item": 5000,"amount": 1 }
+        ],
+        casualCost: "1 Scrap"
     },
-    sydneyfree = {
-        casualCost: "nothing",
-        cost: [],
+    {
         name: "Sydney Sleeper",
-        index: "230"
-    },
-    lastbreath = {
-        casualCost: "1 key",
-        cost: [5021],
-        name: "The Last Breath",
-        index: "570"
-    },
-    bafbills = {
-        casualCost: "7keys + 3ref",
-        cost: [5021, 5021, 5021, 5021, 5021, 5021, 5021, 5002, 5002, 5002],
-        name: "Bill's Hat (Barraclavas are Forever)",
-        index: "126"
+        items: [230],
+        cost: [
+            { "item": 5021, "amount": 9 },
+            { "item": 5019, "amount": 1 }
+        ],
+        casualCost: "2 Scrap"
     }
 ];
 
@@ -156,9 +150,7 @@ bot.on('friend', function (steamid, friendtype) {
             break;
         case 3:
             console.log('Bot is now friends with: ' + bot.users[steamid].playerName);
-
             listTrades(steamid);
-
             break;
     }
 });
@@ -191,59 +183,88 @@ bot.on('message', function (source, message, type, chatter) {
             for (var i = 0; i < trades.length; i++) {
 
                 //check if it is inventory
-                if (inventory.filter(function (item) { return item.app_data.def_index == trades[(message - 1)].index; }).length >= 1) {
-                    //continue trade
-                    tradingFor = trades[(message - 1)];
+                if (inventory.filter(function (item) { return item.app_data.def_index == trades[(message - 1)].items[0]; }).length >= 1) {
 
-                    bot.sendMessage(source, "You are now trading for: " + tradingFor.name);
-                    mySaleItem = inventory.filter(function (item) { return item.app_data.def_index == trades[(message - 1)].index; });
-
-                    var myItemOffer = [];
-                    var theirItemOffer = [];
-
-                    function myItem(defindex) {
-                        return {
-                            "appid": 440,
-                            "contextid": 2,
-                            "amount": 1,
-                            "assetid": inventory.filter(function (item) { return item.app_data.def_index == trades[(message - 1)].index; })[0].id
-                        };
-                    };
-
-                    function theirItem(defindex) {
-
-                        //check if free?
-
-                        return {
-                            "appid": 440,
-                            "contextid": 2,
-                            "amount": 1,
-                            "assetid": clientInventory.filter(function (item) { return item.app_data.def_index == trades[(message - 1)].cost[0]; })[0].id
-                        };
-                    };
-
-                    //maybe for loop - to add each myoffer
-                    myItemOffer.push(new myItem(tradingFor.index));
-
-                    
-
-                    //send trade offer
+                    //now check if client has required items
                     offers.loadPartnerInventory(source, 440, 2, function (success, z) {
                         clientInventory = z;
 
-                        //need for loop - to add each myoffer
-                        theirItemOffer.push(new theirItem(tradingFor.cost[0]));
-                        console.log(theirItemOffer);
+                        var errors = [];
 
-                        offers.makeOffer(source, 'this is a test message', myItemOffer, theirItemOffer, function (error, object) {
-                            console.log(error);
-                            if (error == null) {
-                                bot.sendMessage(source, "A trade offer (" + object.tradeofferid + ") has been sent containing the item(s): http://steamcommunity.com/my/tradeoffers");
+                        //check if client has each amount of items
+                        for (var k = 0; k < trades[(message - 1)].cost.length; k++) {
+                            console.log("Trade requires: " + trades[(message - 1)].cost[k].item + " x " + trades[(message - 1)].cost[k].amount);
+                            
+                            console.log(trades[(message - 1)].cost[k].amount);
+                            console.log(clientInventory.filter(function (item) { return item.app_data.def_index == trades[(message - 1)].cost[k].item; }).length);
+
+                            if (clientInventory.filter(function (item) { return item.app_data.def_index == trades[(message - 1)].cost[k].item; }).length >= trades[(message - 1)].cost[k].amount) {
+                                
                             } else {
-                                bot.sendMessage(source, "Error creating trade offer. Please try again later.");
+                                errors[errors.length] = "Not enough: " + trades[(message - 1)].cost[k].item;
                             }
-                        });
-                    });
+                        }
+
+                        if (errors.length !== 0) {
+                            console.log("error!");
+                            for (var a = 0; a < errors.length; a++) {
+                                bot.sendMessage(source, errors[a]);
+                            }
+                            return;
+                        } else {
+                            //continue trade
+                            tradingFor = trades[(message - 1)];
+
+                            bot.sendMessage(source, "You are now trading for: " + tradingFor.name);
+
+                            var myItemOffer = [];
+                            var theirItemOffer = [];
+
+                            //add to my item offer
+                            for (var i = 0; i < tradingFor.items.length; i++) {
+                                //generate object for each item
+                                function newItem(defindex) {
+                                    return {
+                                        "appid": 440,
+                                        "contextid": 2,
+                                        "amount": 1,
+                                        "assetid": inventory.filter(function (item) { return item.app_data.def_index == tradingFor.items[i]; })[0].id
+                                        //may add 1st item twice if more than one needed
+                                    };
+                                }
+                                myItemOffer.push(new newItem(tradingFor.items[i]));
+                            }
+                            console.log(myItemOffer);
+
+
+                            //send trade offer
+
+                            //add to their item offer
+                            for (var j = 0; j < tradingFor.cost.length; j++) {
+                                function newItem(defindex) {
+                                    return {
+                                        "appid": 440,
+                                        "contextid": 2,
+                                        "amount": 1,
+                                        "assetid": clientInventory.filter(function (item) { return item.app_data.def_index == tradingFor.cost[j]; })[0].id
+                                        //may add 1st item twice if more than one needed
+                                    };
+                                }
+                                theirItemOffer.push(new newItem(tradingFor.cost[j]));
+                            }
+                            console.log(theirItemOffer);
+
+                            //send trade offer
+                            offers.makeOffer(source, 'this is a test message', myItemOffer, theirItemOffer, function (error, object) {
+                                if (error == null) {
+                                    bot.sendMessage(source, "A trade offer (" + object.tradeofferid + ") has been sent containing the item(s): http://steamcommunity.com/my/tradeoffers");
+                                } else {
+                                    bot.sendMessage(source, "Error creating trade offer. Please try again later.");
+                                }
+                            });
+                        }
+                    });                   
+
                 } else {
                     console.log("(Trade) Error! Bot doesn't have the item: " + message);
                     bot.sendMessage(config.admin[0], "Trade Error! " + bot.users[client].playerName + ": bot did not have item: " + trades[(message - 1)].name);
@@ -288,3 +309,4 @@ app.get('/offline', function (request, response) {
     logOffline();
     response.send("ok");
 });
+
