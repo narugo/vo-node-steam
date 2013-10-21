@@ -6,7 +6,8 @@
   "dependencies": {
     "express": "~3.3.4",
 	"ursa": "",
-	"steam": ""
+	"steam": "",
+	"node-steam-tradeoffers": "git://github.com/Alex7Kom/node-steam-tradeoffers.git"
   },
   "engines": {
     "node": "0.10.13",

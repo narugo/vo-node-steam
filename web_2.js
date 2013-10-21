@@ -97,24 +97,25 @@ var validated = 0;
 var tradeDefArray = [];
 var mySaleItem;
 
+var metal = {
+    "scrap": 5000,
+    "reclaimed": 5001,
+    "refined": 5002
+}
+
 var trades = [
     //http://wiki.alliedmods.net/Team_Fortress_2_Item_Definition_Indexes
     {
         name: "Sydney Sleeper",
-        items: [230],
+        items: [
+            { "item": 230, "amount": 1 },
+            { "item": 570, "amount": 1 }
+        ],
         cost: [
-            { "item": 5000,"amount": 1 }
+            { "item": metal.scrap, "amount": 3 },
+            { "item": metal.refined,"amount": 3 }
         ],
         casualCost: "1 Scrap"
-    },
-    {
-        name: "Sydney Sleeper",
-        items: [230],
-        cost: [
-            { "item": 5021, "amount": 9 },
-            { "item": 5019, "amount": 1 }
-        ],
-        casualCost: "2 Scrap"
     }
 ];
 
@@ -183,7 +184,7 @@ bot.on('message', function (source, message, type, chatter) {
             for (var i = 0; i < trades.length; i++) {
 
                 //check if it is inventory
-                if (inventory.filter(function (item) { return item.app_data.def_index == trades[(message - 1)].items[0]; }).length >= 1) {
+                if (inventory.filter(function (item) { return item.app_data.def_index == trades[(message - 1)].items[0].item; }).length >= 1) {
 
                     //now check if client has required items
                     offers.loadPartnerInventory(source, 440, 2, function (success, z) {
@@ -195,8 +196,8 @@ bot.on('message', function (source, message, type, chatter) {
                         for (var k = 0; k < trades[(message - 1)].cost.length; k++) {
                             console.log("Trade requires: " + trades[(message - 1)].cost[k].item + " x " + trades[(message - 1)].cost[k].amount);
                             
-                            console.log(trades[(message - 1)].cost[k].amount);
-                            console.log(clientInventory.filter(function (item) { return item.app_data.def_index == trades[(message - 1)].cost[k].item; }).length);
+                            //console.log(trades[(message - 1)].cost[k].amount);
+                            //console.log(clientInventory.filter(function (item) { return item.app_data.def_index == trades[(message - 1)].cost[k].item; }).length);
 
                             if (clientInventory.filter(function (item) { return item.app_data.def_index == trades[(message - 1)].cost[k].item; }).length >= trades[(message - 1)].cost[k].amount) {
                                 
@@ -220,48 +221,69 @@ bot.on('message', function (source, message, type, chatter) {
                             var myItemOffer = [];
                             var theirItemOffer = [];
 
-                            //add to my item offer
-                            for (var i = 0; i < tradingFor.items.length; i++) {
-                                //generate object for each item
-                                function newItem(defindex) {
-                                    return {
-                                        "appid": 440,
-                                        "contextid": 2,
-                                        "amount": 1,
-                                        "assetid": inventory.filter(function (item) { return item.app_data.def_index == tradingFor.items[i]; })[0].id
-                                        //may add 1st item twice if more than one needed
-                                    };
-                                }
-                                myItemOffer.push(new newItem(tradingFor.items[i]));
+
+                            //build myItemOffer
+                            for (var k = 0; k < trades[(message - 1)].items.length; k++) {
+
+                                //add each amount of clientinventory array to theiritemoffer
+                                var temp = inventory.filter(function (item) { return item.app_data.def_index == tradingFor.items[k].item; });
+                                temp.length = trades[(message - 1)].items[k].amount;
+
+                                //add temp to theirItemOffer
+                                myItemOffer.push(temp);
                             }
-                            console.log(myItemOffer);
+                            //console.log(myItemOffer);
 
 
-                            //send trade offer
+                            //build theirItemOffer
+                            for (var k = 0; k < tradingFor.cost.length; k++) {
 
-                            //add to their item offer
-                            for (var j = 0; j < tradingFor.cost.length; j++) {
-                                function newItem(defindex) {
-                                    return {
-                                        "appid": 440,
-                                        "contextid": 2,
-                                        "amount": 1,
-                                        "assetid": clientInventory.filter(function (item) { return item.app_data.def_index == tradingFor.cost[j]; })[0].id
-                                        //may add 1st item twice if more than one needed
-                                    };
-                                }
-                                theirItemOffer.push(new newItem(tradingFor.cost[j]));
+                                //add each amount of clientinventory array to theiritemoffer
+                                var temp = clientInventory.filter(function (item) { return item.app_data.def_index == tradingFor.cost[k].item; });
+                                temp.length = tradingFor.cost[k].amount;
+                                
+                                //add temp to theirItemOffer
+                                theirItemOffer.push(temp);
                             }
-                            console.log(theirItemOffer);
+                            //console.log(theirItemOffer);
 
-                            //send trade offer
-                            offers.makeOffer(source, 'this is a test message', myItemOffer, theirItemOffer, function (error, object) {
+                            //convert both offers to acceptable objects
+                            var myMerged = [];
+                            var theirMerged = [];
+
+                            myMerged = myMerged.concat.apply(myMerged, myItemOffer);
+                            theirMerged = theirMerged.concat.apply(theirMerged, theirItemOffer);
+
+                            var myItemOfferReady = [];
+                            var theirItemOfferReady = [];
+
+                            function newItem(assetid) {
+                                return {
+                                    "appid": 440,
+                                    "contextid": 2,
+                                    "amount": 1,
+                                    "assetid": assetid
+                                };
+                            }
+                            for (var b = 0; b < myMerged.length; b++) {
+                                myItemOfferReady.push(new newItem(myMerged[b].id));
+                            }
+                            for (var b = 0; b < theirMerged.length; b++) {
+                                theirItemOfferReady.push(new newItem(theirMerged[b].id));
+                            }
+                            console.log(theirItemOfferReady);
+                            console.log(myItemOfferReady);
+                            
+
+                            //*/send trade offer
+                            offers.makeOffer(source, 'this is a test message', myItemOfferReady, theirItemOfferReady, function (error, object) {
                                 if (error == null) {
                                     bot.sendMessage(source, "A trade offer (" + object.tradeofferid + ") has been sent containing the item(s): http://steamcommunity.com/my/tradeoffers");
                                 } else {
                                     bot.sendMessage(source, "Error creating trade offer. Please try again later.");
                                 }
                             });
+                            //*/
                         }
                     });                   
 
