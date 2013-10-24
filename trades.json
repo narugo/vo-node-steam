@@ -1,0 +1,67 @@
+[
+	{
+		"name": "Buy 1 key",
+		"items": [
+			{ "item": 5021 , "amount": 1 }
+		],
+		"cost": [
+			{ "item": 5002 , "amount": 6 },
+			{ "item": 5001 , "amount": 1 }
+		],
+		"casualCost": "6.33 ref"
+	},
+	{
+		"name": "Buy 2 keys",
+		"items": [
+			{ "item": 5021 , "amount": 2 }
+		],
+		"cost": [
+			{ "item": 5002 , "amount": 12 },
+			{ "item": 5001 , "amount": 1 },
+			{ "item": 5000 , "amount": 1 }
+		],
+		"casualCost": "12.44 ref"
+	},
+	{
+		"name": "Buy 3 keys",
+		"items": [
+			{ "item": 5021 , "amount": 3 }
+		],
+		"cost": [
+			{ "item": 5002 , "amount": 18 },
+			{ "item": 5001 , "amount": 1 },
+			{ "item": 5000 , "amount": 2 }
+		],
+		"casualCost": "18.55 ref"
+	},
+	{
+		"name": "Sell keys",
+		"items": [
+			{ "item": 5002 , "amount": 6 },
+			{ "item": 5000 , "amount": 1 }
+		],
+		"cost": [
+			{ "item": 5019 , "amount": 1 }
+		],
+		"casualCost": "6.11 ref"
+	},
+	{
+		"name": "Sydney Sleeper",
+		"items": [
+			{ "item": 230, "amount": 1 }
+		],
+		"cost": [
+			{ "item": 5000, "amount": 1 }
+		],
+		"casualCost": "1 Scrap"
+	},
+	{
+		"name": "Key deposit",
+		"items": [],
+		"cost": [
+			{ "item": 5021 , "amount": 2 }
+		],
+		"casualCost": "Deposit",
+		"admin": 1
+	}
+]
